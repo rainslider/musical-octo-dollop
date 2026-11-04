@@ -1,0 +1,12 @@
+const express=require('express'),session=require('express-session'),bcrypt=require('bcryptjs'),DB=require('better-sqlite3'),path=require('path');
+const app=express(),db=new DB(process.env.DB_PATH||'paint-hide.sqlite');
+app.use(express.json());app.use(express.urlencoded({extended:true}));
+app.use(session({secret:process.env.SESSION_SECRET||'replace-this-secret',resave:false,saveUninitialized:false,cookie:{httpOnly:true,sameSite:'lax'}}));
+const auth=(q,s,n)=>{if(!q.session.uid)return s.status(401).json({error:'Log eerst in'});n()};
+app.post('/api/register',async(q,s)=>{try{let {username,email,password}=q.body;if(!username||!email||!/^\S+@\S+\.\S+$/.test(email)||!password||password.length<8)return s.status(400).json({error:'Controleer je gegevens; wachtwoord minimaal 8 tekens.'});let h=await bcrypt.hash(password,12),r=db.prepare('INSERT INTO users(username,email,password) VALUES(?,?,?)').run(username,email.toLowerCase(),h);q.session.uid=r.lastInsertRowid;s.json({ok:true})}catch(e){s.status(400).json({error:'Gebruikersnaam of e-mail bestaat al.'})}});
+app.post('/api/login',async(q,s)=>{let u=db.prepare('SELECT * FROM users WHERE email=?').get(String(q.body.email||'').toLowerCase());if(!u||!await bcrypt.compare(q.body.password||'',u.password))return s.status(401).json({error:'Onjuiste inloggegevens'});q.session.uid=u.id;s.json({ok:true})});
+app.get('/api/dashboard',auth,(q,s)=>{let u=db.prepare('SELECT username,coins,spent,premium_until FROM users WHERE id=?').get(q.session.uid);if(!u)return s.status(404).json({error:'Account niet gevonden'});s.json({username:u.username,coins:u.coins,spent:u.spent,premium:u.premium_until>Date.now()})});
+app.post('/api/redeem',auth,(q,s)=>{if(String(q.body.code||'').trim().toLowerCase()!=='getpremium')return s.status(400).json({error:'Ongeldige code'});try{db.prepare('INSERT INTO redemptions VALUES(?,?)').run(q.session.uid,'getpremium-'+Math.floor(Date.now()/604800000));db.prepare('UPDATE users SET premium_until=? WHERE id=?').run(Date.now()+7*86400000,q.session.uid);s.json({ok:true,message:'Premium is 1 week geactiveerd!'})}catch(e){s.status(400).json({error:'Deze code is deze week al gebruikt.'})}});
+app.post('/api/logout',(q,s)=>q.session.destroy(()=>s.json({ok:true})));
+app.use(express.static(path.join(__dirname,'public')));app.get('*',(q,s)=>s.sendFile(path.join(__dirname,'public','index.html')));
+app.listen(process.env.PORT||3001,'0.0.0.0',()=>console.log('Account panel draait'));

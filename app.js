@@ -1,0 +1,6 @@
+const $=x=>document.getElementById(x);async function api(url,data){let r=await fetch(url,{method:data?'POST':'GET',headers:{'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});let j=await r.json();if(!r.ok)throw Error(j.error||'Fout');return j}
+async function login(){try{await api('/api/login',{email:$('email').value,password:$('password').value});await load()}catch(e){$('error').textContent=e.message}}
+async function register(){try{await api('/api/register',{username:$('username').value,email:$('email').value,password:$('password').value});await load()}catch(e){$('error').textContent=e.message}}
+async function load(){try{let d=await api('/api/dashboard');$('login').classList.add('hidden');$('dashboard').classList.remove('hidden');$('name').textContent=d.username;$('coins').textContent=d.coins;$('spent').textContent=d.spent;$('premium').textContent=d.premium?'Actief':'Niet actief'}catch(e){}}
+async function redeem(){try{let d=await api('/api/redeem',{code:$('code').value});$('result').textContent=d.message;load()}catch(e){$('result').textContent=e.message}}
+async function logout(){await api('/api/logout',{});location.reload()}load();

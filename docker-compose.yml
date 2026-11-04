@@ -1,0 +1,15 @@
+# Start samen met de game via een gedeeld volume met dezelfde naam.
+services:
+  account-panel:
+    build: .
+    ports: ["3001:3001"]
+    environment:
+      PORT: 3001
+      DB_PATH: /data/paint-hide.sqlite
+      SESSION_SECRET: change-this-secret
+    volumes:
+      - paint_data:/data
+volumes:
+  paint_data:
+    external: true
+    name: paint-and-hide_paint_data
